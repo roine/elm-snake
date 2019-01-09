@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Browser.Events
+import Browser.Events exposing (Visibility(..))
 import Dict exposing (Dict)
 import Html exposing (Html, button, div, input, span, text)
 import Html.Attributes exposing (style, type_, value)
@@ -43,7 +43,7 @@ type alias Model =
 type GameStatus
     = PlayingState PlayingModel
     | StartPageState {}
-    | GameOverState { score : Int }
+    | GameOverState GameOverModel
 
 
 type alias PlayingModel =
@@ -55,6 +55,11 @@ type alias PlayingModel =
     , fruitPosition : Maybe ( Int, Int )
     , score : Int
     , paused : Bool
+    }
+
+
+type alias GameOverModel =
+    { score : Int
     }
 
 
@@ -79,7 +84,7 @@ getLastDirection (Directions _ direction) =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init flags =
+init _ =
     ( initialPlayingState
     , Cmd.none
     )
@@ -87,11 +92,11 @@ init flags =
 
 initialPlayingState =
     PlayingState
-        { snakePosition = [ ( 10, 4 ) ]
+        { snakePosition = [ ( 10, 4 ), ( 9, 4 ) ]
         , lastTick = Time.millisToPosix 0
         , lastPositionWhenDirectionChanged = ( 10, 4 )
         , direction = Directions East Nothing
-        , difficulty = 1
+        , difficulty = 3
         , fruitPosition = Nothing
         , score = 0
         , paused = False
@@ -99,7 +104,7 @@ initialPlayingState =
 
 
 arenaDimension =
-    ( 20, 20 )
+    ( 15, 15 )
 
 
 blockDimension =
@@ -126,6 +131,7 @@ type PlayingMsg
     | NewFruit ( Int, Int )
     | ChangeDifficulty String
     | StopPause
+    | TogglePause Browser.Events.Visibility
 
 
 type GameOverMsg
@@ -157,7 +163,7 @@ updatePlaying msg model =
                     [] ->
                         ( PlayingState model, Cmd.none )
 
-                    head :: [] ->
+                    head :: tail ->
                         let
                             newPosition =
                                 case model.direction of
@@ -195,13 +201,23 @@ updatePlaying msg model =
                                         case model.fruitPosition of
                                             Just fruitPosition ->
                                                 if fruitPosition == head then
-                                                    newPosition :: [ head ]
+                                                    [ newPosition, head ] ++ tail
 
                                                 else
-                                                    [ newPosition ]
+                                                    case List.reverse model.snakePosition of
+                                                        [] ->
+                                                            [ newPosition ]
+
+                                                        _ :: xs ->
+                                                            newPosition :: List.reverse xs
 
                                             Nothing ->
-                                                [ newPosition ]
+                                                case List.reverse model.snakePosition of
+                                                    [] ->
+                                                        [ newPosition ]
+
+                                                    _ :: xs ->
+                                                        newPosition :: List.reverse xs
                                     , lastTick = posix
                                     , score =
                                         case model.fruitPosition of
@@ -236,18 +252,15 @@ updatePlaying msg model =
                             , newFruit
                             )
 
-                    head :: tail ->
-                        ( PlayingState model, Cmd.none )
-
             else
                 ( PlayingState model, Cmd.none )
 
         ChangeDirection newDirection ->
             case model.snakePosition of
-                headPosition :: tail ->
+                headPosition :: _ ->
                     if model.lastPositionWhenDirectionChanged == headPosition then
                         case model.direction of
-                            Directions oldDirection Nothing ->
+                            Directions _ Nothing ->
                                 ( PlayingState
                                     { model
                                         | direction = Directions (getNextDirection model.direction) (Just newDirection)
@@ -279,17 +292,26 @@ updatePlaying msg model =
         StopPause ->
             ( PlayingState { model | paused = False }, Cmd.none )
 
+        TogglePause visibility ->
+            case visibility of
+                Hidden ->
+                    ( PlayingState { model | paused = True }, Cmd.none )
+
+                Visible ->
+                    ( PlayingState { model | paused = False }, Cmd.none )
+
 
 getNewFruit : Cmd Msg
 getNewFruit =
     Random.generate (PlayingType << NewFruit) (Random.pair (Random.int 1 (Tuple.first arenaDimension)) (Random.int 1 (Tuple.second arenaDimension)))
 
 
-updateStartPage msg model =
+updateStartPage _ model =
     ( StartPageState model, Cmd.none )
 
 
-updateGameOver msg model =
+updateGameOver : GameOverMsg -> GameOverModel -> ( Model, Cmd Msg )
+updateGameOver msg _ =
     case msg of
         Restart ->
             ( initialPlayingState, Cmd.none )
@@ -317,8 +339,9 @@ view model =
 
                 GameOverState gameOverModel ->
                     div []
-                        [ text "game over"
+                        [ text "Game Over"
                         , button [ onClick (GameOverType Restart) ] [ text "restart" ]
+                        , text ("Score: " ++ String.fromInt gameOverModel.score)
                         ]
             ]
         , Debug.toString model |> text
@@ -339,6 +362,9 @@ arenaView { snakePosition, fruitPosition, difficulty, paused } =
 
         height =
             (blockDimension * columns |> String.fromInt) ++ "px"
+
+        _ =
+            Debug.log "pos" snakePosition
     in
     div [ style "display" "flex" ]
         [ div
@@ -486,6 +512,7 @@ subscriptions model =
                                 )
                             |> Json.Decode.map (PlayingType << ChangeDirection)
                         )
+                    , Browser.Events.onVisibilityChange (PlayingType << TogglePause)
                     ]
 
         _ ->
