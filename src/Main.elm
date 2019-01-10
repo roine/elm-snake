@@ -4,11 +4,52 @@ import Browser
 import Browser.Events exposing (Visibility(..))
 import Dict exposing (Dict)
 import Html exposing (Html, button, div, input, span, text)
-import Html.Attributes exposing (style, type_, value)
+import Html.Attributes exposing (disabled, style, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode
 import Random
 import Time exposing (Posix)
+
+
+type alias Model =
+    GameStatus
+
+
+type alias Position =
+    ( Int, Int )
+
+
+type GameStatus
+    = PlayingState PlayingModel
+    | StartPageState StartPageModel
+    | GameOverState GameOverModel
+
+
+type alias PlayingModel =
+    { snakePosition : List Position
+    , lastTick : Posix
+    , lastPositionWhenDirectionChanged : Position -- used to avoid more than one direction change per snake move
+    , direction : Directions
+    , difficulty : Int
+    , fruitPosition : Maybe Position
+    , score : Int
+    , paused : Bool
+    , name : String
+    }
+
+
+type alias GameOverModel =
+    { score : Int
+    , name : String
+    }
+
+
+type alias StartPageModel =
+    { name : String }
+
+
+type alias Flags =
+    ()
 
 
 type Direction
@@ -18,6 +59,7 @@ type Direction
     | South
 
 
+oppositeDirection : Direction -> Direction -> Bool
 oppositeDirection directionA directionB =
     case ( directionA, directionB ) of
         ( West, East ) ->
@@ -34,37 +76,6 @@ oppositeDirection directionA directionB =
 
         _ ->
             False
-
-
-type alias Model =
-    GameStatus
-
-
-type GameStatus
-    = PlayingState PlayingModel
-    | StartPageState {}
-    | GameOverState GameOverModel
-
-
-type alias PlayingModel =
-    { snakePosition : List ( Int, Int )
-    , lastTick : Posix
-    , lastPositionWhenDirectionChanged : ( Int, Int ) -- used to avoid more than one direction change per snake move
-    , direction : Directions
-    , difficulty : Int
-    , fruitPosition : Maybe ( Int, Int )
-    , score : Int
-    , paused : Bool
-    }
-
-
-type alias GameOverModel =
-    { score : Int
-    }
-
-
-type alias Flags =
-    ()
 
 
 
@@ -85,12 +96,12 @@ getLastDirection (Directions _ direction) =
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( initialPlayingState
+    ( StartPageState { name = "" }
     , Cmd.none
     )
 
 
-initialPlayingState =
+initialPlayingState name =
     PlayingState
         { snakePosition = [ ( 10, 4 ), ( 9, 4 ) ]
         , lastTick = Time.millisToPosix 0
@@ -100,11 +111,12 @@ initialPlayingState =
         , fruitPosition = Nothing
         , score = 0
         , paused = False
+        , name = name
         }
 
 
 arenaDimension =
-    ( 15, 15 )
+    ( 30, 30 )
 
 
 blockDimension =
@@ -155,12 +167,13 @@ getScoreFromDifficulty level =
 type Msg
     = PlayingType PlayingMsg
     | GameOverType GameOverMsg
+    | StartPageType StartPageMsg
 
 
 type PlayingMsg
     = Tick Posix
     | ChangeDirection Direction
-    | NewFruit ( Int, Int )
+    | NewFruit Position
     | ChangeDifficulty String
     | StopPause
     | TogglePause Browser.Events.Visibility
@@ -176,7 +189,7 @@ update msg model =
         ( PlayingType subMsg, PlayingState playingState ) ->
             updatePlaying subMsg playingState
 
-        ( PlayingType subMsg, StartPageState startState ) ->
+        ( StartPageType subMsg, StartPageState startState ) ->
             updateStartPage subMsg startState
 
         ( GameOverType subMsg, GameOverState gameOverState ) ->
@@ -224,7 +237,7 @@ updatePlaying msg model =
                                             Cmd.none
                         in
                         if outOfBound newPosition || ouroborosing head model.snakePosition then
-                            ( GameOverState { score = model.score }, Cmd.none )
+                            ( GameOverState { score = model.score, name = model.name }, Cmd.none )
 
                         else
                             ( PlayingState
@@ -338,15 +351,25 @@ getNewFruit =
     Random.generate (PlayingType << NewFruit) (Random.pair (Random.int 1 (Tuple.first arenaDimension)) (Random.int 1 (Tuple.second arenaDimension)))
 
 
-updateStartPage _ model =
-    ( StartPageState model, Cmd.none )
+type StartPageMsg
+    = UpdateName String
+    | StartGame
+
+
+updateStartPage msg model =
+    case msg of
+        UpdateName newName ->
+            ( StartPageState { model | name = newName }, Cmd.none )
+
+        StartGame ->
+            ( initialPlayingState model.name, Cmd.none )
 
 
 updateGameOver : GameOverMsg -> GameOverModel -> ( Model, Cmd Msg )
-updateGameOver msg _ =
+updateGameOver msg model =
     case msg of
         Restart ->
-            ( initialPlayingState, Cmd.none )
+            ( initialPlayingState model.name, Cmd.none )
 
 
 outOfBound : ( Int, Int ) -> Bool
@@ -354,7 +377,7 @@ outOfBound ( x, y ) =
     x < 1 || x > Tuple.first arenaDimension || y < 1 || y > Tuple.second arenaDimension
 
 
-ouroborosing : ( Int, Int ) -> List ( Int, Int ) -> Bool
+ouroborosing : Position -> List Position -> Bool
 ouroborosing ( x, y ) bodyParts =
     case bodyParts of
         [] ->
@@ -373,20 +396,35 @@ view model =
     div []
         [ div [ style "display" "flex" ]
             [ case model of
-                PlayingState playingModel ->
-                    Html.map PlayingType (arenaView playingModel)
-
                 StartPageState startPageModel ->
-                    text "start page"
+                    Html.map StartPageType (startPargeView startPageModel)
+
+                PlayingState playingModel ->
+                    div [ style "display" "flex" ]
+                        [ div []
+                            [ div [ style "font-size" "40px", style "text-align" "center" ]
+                                [ text (String.fromInt playingModel.score) ]
+                            , Html.map PlayingType (arenaView playingModel)
+                            ]
+                        , Html.map PlayingType (optionView playingModel.difficulty)
+                        ]
 
                 GameOverState gameOverModel ->
                     div []
                         [ text "Game Over"
                         , button [ onClick (GameOverType Restart) ] [ text "restart" ]
-                        , text ("Score: " ++ String.fromInt gameOverModel.score)
+                        , text (gameOverModel.name ++ "'s score: " ++ String.fromInt gameOverModel.score)
                         ]
             ]
         , Debug.toString model |> text
+        ]
+
+
+startPargeView : StartPageModel -> Html StartPageMsg
+startPargeView model =
+    div []
+        [ input [ value model.name, onInput UpdateName ] []
+        , button [ disabled (String.isEmpty model.name), onClick StartGame ] [ text "Start" ]
         ]
 
 
@@ -476,7 +514,6 @@ arenaView { snakePosition, fruitPosition, difficulty, paused } =
                         []
                    )
             )
-        , optionView difficulty
         ]
 
 
