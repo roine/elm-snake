@@ -111,9 +111,41 @@ blockDimension =
     15
 
 
-difficulties : Dict Int Int
+type alias Level =
+    Int
+
+
+type alias FrameRate =
+    Int
+
+
+type alias Score =
+    Int
+
+
+difficulties : Dict Level ( FrameRate, Score )
 difficulties =
-    Dict.fromList [ ( 1, 1000 ), ( 2, 500 ), ( 3, 300 ), ( 4, 200 ), ( 5, 100 ) ]
+    Dict.fromList
+        [ ( 1, ( 1000, 50 ) )
+        , ( 2, ( 500, 100 ) )
+        , ( 3, ( 300, 150 ) )
+        , ( 4, ( 200, 300 ) )
+        , ( 5, ( 100, 500 ) )
+        ]
+
+
+getSpeedFromDifficulty : Int -> Int
+getSpeedFromDifficulty level =
+    Dict.get level difficulties
+        |> Maybe.map Tuple.first
+        |> Maybe.withDefault 1000
+
+
+getScoreFromDifficulty : Int -> Int
+getScoreFromDifficulty level =
+    Dict.get level difficulties
+        |> Maybe.map Tuple.second
+        |> Maybe.withDefault 0
 
 
 
@@ -158,7 +190,7 @@ updatePlaying : PlayingMsg -> PlayingModel -> ( Model, Cmd Msg )
 updatePlaying msg model =
     case msg of
         Tick posix ->
-            if Time.posixToMillis posix - Time.posixToMillis model.lastTick > (Dict.get model.difficulty difficulties |> Maybe.withDefault 1000) then
+            if Time.posixToMillis posix - Time.posixToMillis model.lastTick > getSpeedFromDifficulty model.difficulty then
                 case model.snakePosition of
                     [] ->
                         ( PlayingState model, Cmd.none )
@@ -191,7 +223,7 @@ updatePlaying msg model =
                                         else
                                             Cmd.none
                         in
-                        if outOfBound newPosition then
+                        if outOfBound newPosition || ouroborosing head model.snakePosition then
                             ( GameOverState { score = model.score }, Cmd.none )
 
                         else
@@ -223,13 +255,13 @@ updatePlaying msg model =
                                         case model.fruitPosition of
                                             Just fruitPosition ->
                                                 if fruitPosition == head then
-                                                    model.score + 50
+                                                    model.score + getScoreFromDifficulty model.difficulty + 5
 
                                                 else
-                                                    model.score
+                                                    model.score + 5
 
                                             Nothing ->
-                                                model.score
+                                                model.score + 5
                                     , direction =
                                         case getLastDirection model.direction of
                                             Nothing ->
@@ -318,8 +350,18 @@ updateGameOver msg _ =
 
 
 outOfBound : ( Int, Int ) -> Bool
-outOfBound position =
-    Tuple.first position < 1 || Tuple.first position > Tuple.first arenaDimension || Tuple.second position < 1 || Tuple.second position > Tuple.second arenaDimension
+outOfBound ( x, y ) =
+    x < 1 || x > Tuple.first arenaDimension || y < 1 || y > Tuple.second arenaDimension
+
+
+ouroborosing : ( Int, Int ) -> List ( Int, Int ) -> Bool
+ouroborosing ( x, y ) bodyParts =
+    case bodyParts of
+        [] ->
+            False
+
+        _ :: tail ->
+            List.any (\( bodyPartX, bodyPartY ) -> x == bodyPartX && y == bodyPartY) tail
 
 
 
@@ -387,11 +429,26 @@ arenaView { snakePosition, fruitPosition, difficulty, paused } =
                                                 []
 
                                             head :: tail ->
-                                                if x == Tuple.first head && y == Tuple.second head then
-                                                    [ style "background" "red" ]
+                                                let
+                                                    snakeHead =
+                                                        if x == Tuple.first head && y == Tuple.second head then
+                                                            [ style "background" "darkGreen" ]
 
-                                                else
-                                                    []
+                                                        else
+                                                            []
+
+                                                    snakeBody =
+                                                        List.filterMap
+                                                            (\( bodyPartX, bodyPartY ) ->
+                                                                if x == bodyPartX && y == bodyPartY then
+                                                                    Just (style "background" "green")
+
+                                                                else
+                                                                    Nothing
+                                                            )
+                                                            tail
+                                                in
+                                                snakeHead ++ snakeBody
 
                                     fruitStyle =
                                         case fruitPosition of
@@ -413,38 +470,47 @@ arenaView { snakePosition, fruitPosition, difficulty, paused } =
                 )
                 (List.range 1 columns)
                 ++ (if paused then
-                        [ div
-                            [ style "position" "absolute"
-                            , style "left" "50%"
-                            , style "top" "50%"
-                            , style "transform" "translate(-50%, -50%)"
-                            ]
-                            [ button
-                                [ onClick StopPause
-                                , style "font-size" "40px"
-                                , style "border" "0"
-                                , style "padding" "0 15px"
-                                ]
-                                [ text "II" ]
-                            ]
-                        ]
+                        [ pausedBoxView ]
 
                     else
                         []
                    )
             )
+        , optionView difficulty
+        ]
+
+
+pausedBoxView : Html PlayingMsg
+pausedBoxView =
+    div
+        [ style "position" "absolute"
+        , style "left" "50%"
+        , style "top" "50%"
+        , style "transform" "translate(-50%, -50%)"
+        ]
+        [ button
+            [ onClick StopPause
+            , style "font-size" "40px"
+            , style "border" "0"
+            , style "padding" "0 15px"
+            ]
+            [ text "II" ]
+        ]
+
+
+optionView : Int -> Html PlayingMsg
+optionView difficulty =
+    div []
+        [ div [] [ text "Change difficulty" ]
         , div []
-            [ div [] [ text "Change difficulty" ]
-            , div []
-                [ input
-                    [ type_ "range"
-                    , Html.Attributes.min "1"
-                    , Html.Attributes.max "5"
-                    , value (String.fromInt difficulty)
-                    , onInput ChangeDifficulty
-                    ]
-                    []
+            [ input
+                [ type_ "range"
+                , Html.Attributes.min "1"
+                , Html.Attributes.max "5"
+                , value (String.fromInt difficulty)
+                , onInput ChangeDifficulty
                 ]
+                []
             ]
         ]
 
