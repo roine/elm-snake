@@ -1,0 +1,8 @@
+{
+  "name": "elm-snake",
+  "version": "1.0.0",
+  "main": "index.html",
+  "repository": "git@github.com:roine/elm-snake.git",
+  "author": "roine <feunetre@hotmail.com>",
+  "license": "MIT"
+}
