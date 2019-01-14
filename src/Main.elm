@@ -1,16 +1,24 @@
 port module Main exposing (main)
 
 import Browser
-import GameStates exposing (GameStatus(..), getUserScoreFromModel)
+import GameStates exposing (GameStatus(..), getLeaderboardFromModel, getUserScoreFromModel)
 import GameStates.Over
 import GameStates.Play
 import GameStates.Start
 import Html exposing (Html, div, text)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (class, style)
+import Json.Decode
 import Leaderboard exposing (UserScore)
+import Uuid
 
 
 port leaderboard : (List UserScore -> msg) -> Sub msg
+
+
+port leaderboardUpdate : (UserScore -> msg) -> Sub msg
+
+
+port sendScore : UserScore -> Cmd msg
 
 
 type alias Model =
@@ -36,7 +44,7 @@ type Msg
     = PlayingType GameStates.Play.Msg
     | GameOverType GameStates.Over.Msg
     | StartPageType GameStates.Start.Msg
-    | AddLeaderboard (List { name : String, score : Int })
+    | AddLeaderboard (List UserScore)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -44,13 +52,20 @@ update msg model =
     case ( msg, model ) of
         -- TRANSITION GAME STATE
         ( StartPageType GameStates.Start.ChangeState, StartPageState startState ) ->
-            ( PlayingState (GameStates.Play.init startState.name), Cmd.none )
+            ( PlayingState (GameStates.Play.init startState.name startState.uuid startState.leaderboard), Cmd.none )
 
         ( PlayingType GameStates.Play.ChangeState, PlayingState playingState ) ->
-            ( GameOverState { name = playingState.name, score = playingState.score, leaderboard = playingState.leaderboard }, Cmd.none )
+            ( GameOverState
+                { name = playingState.name
+                , score = playingState.score
+                , uuid = playingState.uuid
+                , leaderboard = playingState.leaderboard
+                }
+            , sendScore { name = playingState.name, score = playingState.score, uuid = playingState.uuid }
+            )
 
         ( GameOverType GameStates.Over.ChangeState, GameOverState overState ) ->
-            ( PlayingState (GameStates.Play.init overState.name), Cmd.none )
+            ( PlayingState (GameStates.Play.init overState.name overState.uuid overState.leaderboard), Cmd.none )
 
         -- FORWARDING MSG
         ( StartPageType subMsg, StartPageState startState ) ->
@@ -61,15 +76,17 @@ update msg model =
             GameStates.Play.update subMsg playingState
                 |> Tuple.mapBoth PlayingState (Cmd.map PlayingType)
 
-        ( GameOverType subMsg, GameOverState gameOverState ) ->
-            GameStates.Over.update subMsg gameOverState
-                |> Tuple.mapBoth GameOverState (Cmd.map GameOverType)
-
+        --        ( GameOverType subMsg, GameOverState gameOverState ) ->
+        --            GameStates.Over.update subMsg gameOverState
+        --                |> Tuple.mapBoth GameOverState (Cmd.map GameOverType)
         ( AddLeaderboard scores, PlayingState playingState ) ->
             ( PlayingState { playingState | leaderboard = scores }, Cmd.none )
 
         ( AddLeaderboard scores, StartPageState startState ) ->
             ( StartPageState { startState | leaderboard = scores }, Cmd.none )
+
+        ( AddLeaderboard scores, GameOverState gameOverState ) ->
+            ( GameOverState { gameOverState | leaderboard = scores }, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -81,19 +98,22 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ style "display" "flex" ]
-        [ div []
-            [ case model of
-                StartPageState startPageModel ->
-                    Html.map StartPageType (GameStates.Start.view startPageModel)
+    div [ class "grid-container" ]
+        [ div
+            [ class "grid-x align-center" ]
+            [ div [ class "row medium-6 columns" ]
+                [ case model of
+                    StartPageState startPageModel ->
+                        Html.map StartPageType (GameStates.Start.view startPageModel)
 
-                PlayingState playingModel ->
-                    Html.map PlayingType (GameStates.Play.view playingModel)
+                    PlayingState playingModel ->
+                        Html.map PlayingType (GameStates.Play.view playingModel)
 
-                GameOverState gameOverModel ->
-                    Html.map GameOverType (GameStates.Over.view gameOverModel)
+                    GameOverState gameOverModel ->
+                        Html.map GameOverType (GameStates.Over.view gameOverModel)
+                , Leaderboard.view (getLeaderboardFromModel model) (getUserScoreFromModel model)
+                ]
             ]
-        , Leaderboard.view (getUserScoreFromModel model)
         ]
 
 

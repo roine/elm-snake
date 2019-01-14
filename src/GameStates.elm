@@ -1,4 +1,4 @@
-module GameStates exposing (GameStatus(..), getUserScoreFromModel)
+module GameStates exposing (GameStatus(..), getLeaderboardFromModel, getUserScoreFromModel)
 
 import GameStates.Over
 import GameStates.Play
@@ -11,7 +11,7 @@ type GameStatus
     | GameOverState GameStates.Over.Model
 
 
-getUserScoreFromModel model =
+getLeaderboardFromModel model =
     case model of
         StartPageState m ->
             m.leaderboard
@@ -21,3 +21,15 @@ getUserScoreFromModel model =
 
         GameOverState m ->
             m.leaderboard
+
+
+getUserScoreFromModel model =
+    case model of
+        StartPageState m ->
+            { name = m.name, score = 0, uuid = m.uuid }
+
+        PlayingState m ->
+            { name = m.name, score = m.score, uuid = m.uuid }
+
+        GameOverState m ->
+            { name = m.name, score = m.score, uuid = m.uuid }

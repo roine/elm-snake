@@ -12,6 +12,7 @@ import Leaderboard exposing (UserScore)
 type alias Model =
     { score : Int
     , name : String
+    , uuid : String
     , leaderboard : List UserScore
     }
 
@@ -22,7 +23,6 @@ type alias Model =
 
 type Msg
     = ChangeState
-    | NoOp
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -36,7 +36,7 @@ update msg model =
 
 view { name, score } =
     div []
-        [ text "Game Over"
+        [ div [] [ text "Game Over" ]
         , button [ onClick ChangeState ] [ text "restart" ]
         , text (name ++ "'s score: " ++ String.fromInt score)
         ]

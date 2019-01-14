@@ -1,21 +1,37 @@
-module Leaderboard exposing (UserScore, view)
+module Leaderboard exposing (Leaderboard, UserScore, view)
 
-import Html exposing (li, text, ul)
+import Html exposing (Html, li, text, ul)
+import Html.Attributes exposing (style)
 
 
 type alias UserScore =
-    { name : String, score : Int }
+    { name : String, score : Int, uuid : String }
 
 
-view score =
+type alias Leaderboard =
+    List UserScore
+
+
+view : Leaderboard -> UserScore -> Html msg
+view score current =
     let
         sortLeaderboard =
             List.sortBy .score
+
+        highlightStyle =
+            [ style "background" " green", style "color" "white" ]
     in
     ul []
         (List.map
             (\user ->
-                li [] [ text (user.name ++ " " ++ String.fromInt user.score) ]
+                li
+                    (if user.uuid == current.uuid then
+                        highlightStyle
+
+                     else
+                        []
+                    )
+                    [ text (user.name ++ " " ++ String.fromInt user.score) ]
             )
-            (sortLeaderboard score)
+            (sortLeaderboard score |> List.reverse)
         )

@@ -14,7 +14,7 @@ import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (class, style, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode
-import Leaderboard exposing (UserScore)
+import Leaderboard exposing (Leaderboard, UserScore)
 import Random
 import Task
 import Time exposing (Posix)
@@ -30,14 +30,15 @@ type alias Model =
     , score : Int
     , paused : Bool
     , name : String
+    , uuid : String
     , arenaDimension : ( Int, Int )
     , blockDimension : Int
     , leaderboard : List UserScore
     }
 
 
-init : String -> Model
-init name =
+init : String -> String -> Leaderboard -> Model
+init name uuid leaderboard =
     { snakePosition = [ ( 10, 4 ), ( 9, 4 ) ]
     , lastTick = Time.millisToPosix 0
     , lastPositionWhenDirectionChanged = ( 10, 4 )
@@ -47,9 +48,10 @@ init name =
     , score = 0
     , paused = False
     , name = name
+    , uuid = uuid
     , arenaDimension = ( 30, 30 )
     , blockDimension = 15
-    , leaderboard = []
+    , leaderboard = leaderboard
     }
 
 
@@ -243,6 +245,20 @@ update msg model =
 
                                         Nothing ->
                                             model.fruitPosition
+                                , leaderboard =
+                                    if List.any (\u -> u.uuid == model.uuid) model.leaderboard then
+                                        List.map
+                                            (\u ->
+                                                if u.uuid == model.uuid then
+                                                    { name = model.name, score = model.score, uuid = model.uuid }
+
+                                                else
+                                                    u
+                                            )
+                                            model.leaderboard
+
+                                    else
+                                        { name = model.name, score = model.score, uuid = model.uuid } :: model.leaderboard
                               }
                             , newFruit
                             )
@@ -336,7 +352,7 @@ view { snakePosition, fruitPosition, arenaDimension, paused, blockDimension, dif
         height =
             (blockDimension * columns |> String.fromInt) ++ "px"
     in
-    div [ style "display" "flex" ]
+    div [ class "flex" ]
         [ div []
             [ div [ style "font-size" "40px", style "text-align" "center" ]
                 [ text (String.fromInt score) ]

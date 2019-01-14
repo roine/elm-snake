@@ -5288,6 +5288,10 @@ var NoRedInk$elm_uuid$Uuid$stringGenerator = A2(
 	NoRedInk$elm_uuid$Uuid$Barebones$toUuidString,
 	A2(NoRedInk$elm_random_pcg_extended$Random$Pcg$Extended$list, 31, NoRedInk$elm_uuid$Uuid$hexGenerator));
 var NoRedInk$elm_uuid$Uuid$generator = A2(NoRedInk$elm_random_pcg_extended$Random$Pcg$Extended$map, NoRedInk$elm_uuid$Uuid$Uuid, NoRedInk$elm_uuid$Uuid$stringGenerator);
+var NoRedInk$elm_uuid$Uuid$toString = function (_n0) {
+	var internalString = _n0.a;
+	return internalString;
+};
 var author$project$GameStates$Start$init = function (_n0) {
 	var seed = _n0.a;
 	var seedExtension = _n0.b;
@@ -5297,7 +5301,13 @@ var author$project$GameStates$Start$init = function (_n0) {
 		A2(NoRedInk$elm_random_pcg_extended$Random$Pcg$Extended$initialSeed, seed, seedExtension));
 	var newUuid = _n1.a;
 	var newSeed = _n1.b;
-	return {currentSeed: newSeed, currentUUID: newUuid, leaderboard: _List_Nil, name: ''};
+	return {
+		currentSeed: newSeed,
+		currentUUID: newUuid,
+		leaderboard: _List_Nil,
+		name: '',
+		uuid: NoRedInk$elm_uuid$Uuid$toString(newUuid)
+	};
 };
 var elm$core$Basics$False = {$: 'False'};
 var elm$core$Result$isOk = function (result) {
@@ -6466,16 +6476,21 @@ var author$project$Main$leaderboard = _Platform_incomingPort(
 	elm$json$Json$Decode$list(
 		A2(
 			elm$json$Json$Decode$andThen,
-			function (score) {
+			function (uuid) {
 				return A2(
 					elm$json$Json$Decode$andThen,
-					function (name) {
-						return elm$json$Json$Decode$succeed(
-							{name: name, score: score});
+					function (score) {
+						return A2(
+							elm$json$Json$Decode$andThen,
+							function (name) {
+								return elm$json$Json$Decode$succeed(
+									{name: name, score: score, uuid: uuid});
+							},
+							A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string));
 					},
-					A2(elm$json$Json$Decode$field, 'name', elm$json$Json$Decode$string));
+					A2(elm$json$Json$Decode$field, 'score', elm$json$Json$Decode$int));
 			},
-			A2(elm$json$Json$Decode$field, 'score', elm$json$Json$Decode$int))));
+			A2(elm$json$Json$Decode$field, 'uuid', elm$json$Json$Decode$string))));
 var elm$core$Platform$Sub$map = _Platform_map;
 var author$project$Main$subscriptions = function (model) {
 	return elm$core$Platform$Sub$batch(
@@ -6501,34 +6516,32 @@ var author$project$GameStates$GameOverState = function (a) {
 var author$project$GameStates$PlayingState = function (a) {
 	return {$: 'PlayingState', a: a};
 };
-var author$project$GameStates$Over$update = F2(
-	function (msg, model) {
-		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
-	});
 var author$project$GameStates$Play$Directions = F2(
 	function (a, b) {
 		return {$: 'Directions', a: a, b: b};
 	});
-var author$project$GameStates$Play$init = function (name) {
-	return {
-		arenaDimension: _Utils_Tuple2(30, 30),
-		blockDimension: 15,
-		difficulty: 3,
-		direction: A2(author$project$GameStates$Play$Directions, author$project$GameStates$Play$East, elm$core$Maybe$Nothing),
-		fruitPosition: elm$core$Maybe$Nothing,
-		lastPositionWhenDirectionChanged: _Utils_Tuple2(10, 4),
-		lastTick: elm$time$Time$millisToPosix(0),
-		leaderboard: _List_Nil,
-		name: name,
-		paused: false,
-		score: 0,
-		snakePosition: _List_fromArray(
-			[
-				_Utils_Tuple2(10, 4),
-				_Utils_Tuple2(9, 4)
-			])
-	};
-};
+var author$project$GameStates$Play$init = F3(
+	function (name, uuid, leaderboard) {
+		return {
+			arenaDimension: _Utils_Tuple2(30, 30),
+			blockDimension: 15,
+			difficulty: 3,
+			direction: A2(author$project$GameStates$Play$Directions, author$project$GameStates$Play$East, elm$core$Maybe$Nothing),
+			fruitPosition: elm$core$Maybe$Nothing,
+			lastPositionWhenDirectionChanged: _Utils_Tuple2(10, 4),
+			lastTick: elm$time$Time$millisToPosix(0),
+			leaderboard: leaderboard,
+			name: name,
+			paused: false,
+			score: 0,
+			snakePosition: _List_fromArray(
+				[
+					_Utils_Tuple2(10, 4),
+					_Utils_Tuple2(9, 4)
+				]),
+			uuid: uuid
+		};
+	});
 var author$project$GameStates$Play$ChangeState = {$: 'ChangeState'};
 var author$project$GameStates$Play$getLastDirection = function (_n0) {
 	var direction = _n0.b;
@@ -6950,6 +6963,20 @@ var author$project$GameStates$Play$update = F2(
 										}
 									}(),
 									lastTick: posix,
+									leaderboard: A2(
+										elm$core$List$any,
+										function (u) {
+											return _Utils_eq(u.uuid, model.uuid);
+										},
+										model.leaderboard) ? A2(
+										elm$core$List$map,
+										function (u) {
+											return _Utils_eq(u.uuid, model.uuid) ? {name: model.name, score: model.score, uuid: model.uuid} : u;
+										},
+										model.leaderboard) : A2(
+										elm$core$List$cons,
+										{name: model.name, score: model.score, uuid: model.uuid},
+										model.leaderboard),
 									score: function () {
 										var _n4 = model.fruitPosition;
 										if (_n4.$ === 'Just') {
@@ -7096,12 +7123,41 @@ var author$project$GameStates$Start$update = F2(
 			return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 		}
 	});
-var author$project$Main$GameOverType = function (a) {
-	return {$: 'GameOverType', a: a};
-};
 var author$project$Main$StartPageType = function (a) {
 	return {$: 'StartPageType', a: a};
 };
+var elm$json$Json$Encode$int = _Json_wrap;
+var elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			elm$core$List$foldl,
+			F2(
+				function (_n0, obj) {
+					var k = _n0.a;
+					var v = _n0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var elm$json$Json$Encode$string = _Json_wrap;
+var author$project$Main$sendScore = _Platform_outgoingPort(
+	'sendScore',
+	function ($) {
+		return elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'name',
+					elm$json$Json$Encode$string($.name)),
+					_Utils_Tuple2(
+					'score',
+					elm$json$Json$Encode$int($.score)),
+					_Utils_Tuple2(
+					'uuid',
+					elm$json$Json$Encode$string($.uuid))
+				]));
+	});
 var elm$core$Platform$Cmd$map = _Platform_map;
 var elm$core$Tuple$mapBoth = F3(
 	function (funcA, funcB, _n0) {
@@ -7117,27 +7173,6 @@ var author$project$Main$update = F2(
 		_n0$8:
 		while (true) {
 			switch (_n0.b.$) {
-				case 'GameOverState':
-					if (_n0.a.$ === 'GameOverType') {
-						if (_n0.a.a.$ === 'ChangeState') {
-							var _n3 = _n0.a.a;
-							var overState = _n0.b.a;
-							return _Utils_Tuple2(
-								author$project$GameStates$PlayingState(
-									author$project$GameStates$Play$init(overState.name)),
-								elm$core$Platform$Cmd$none);
-						} else {
-							var subMsg = _n0.a.a;
-							var gameOverState = _n0.b.a;
-							return A3(
-								elm$core$Tuple$mapBoth,
-								author$project$GameStates$GameOverState,
-								elm$core$Platform$Cmd$map(author$project$Main$GameOverType),
-								A2(author$project$GameStates$Over$update, subMsg, gameOverState));
-						}
-					} else {
-						break _n0$8;
-					}
 				case 'PlayingState':
 					switch (_n0.a.$) {
 						case 'PlayingType':
@@ -7146,8 +7181,9 @@ var author$project$Main$update = F2(
 								var playingState = _n0.b.a;
 								return _Utils_Tuple2(
 									author$project$GameStates$GameOverState(
-										{leaderboard: playingState.leaderboard, name: playingState.name, score: playingState.score}),
-									elm$core$Platform$Cmd$none);
+										{leaderboard: playingState.leaderboard, name: playingState.name, score: playingState.score, uuid: playingState.uuid}),
+									author$project$Main$sendScore(
+										{name: playingState.name, score: playingState.score, uuid: playingState.uuid}));
 							} else {
 								var subMsg = _n0.a.a;
 								var playingState = _n0.b.a;
@@ -7169,7 +7205,7 @@ var author$project$Main$update = F2(
 						default:
 							break _n0$8;
 					}
-				default:
+				case 'StartPageState':
 					switch (_n0.a.$) {
 						case 'StartPageType':
 							if (_n0.a.a.$ === 'ChangeState') {
@@ -7177,7 +7213,7 @@ var author$project$Main$update = F2(
 								var startState = _n0.b.a;
 								return _Utils_Tuple2(
 									author$project$GameStates$PlayingState(
-										author$project$GameStates$Play$init(startState.name)),
+										A3(author$project$GameStates$Play$init, startState.name, startState.uuid, startState.leaderboard)),
 									elm$core$Platform$Cmd$none);
 							} else {
 								var subMsg = _n0.a.a;
@@ -7200,11 +7236,32 @@ var author$project$Main$update = F2(
 						default:
 							break _n0$8;
 					}
+				default:
+					switch (_n0.a.$) {
+						case 'GameOverType':
+							var _n3 = _n0.a.a;
+							var overState = _n0.b.a;
+							return _Utils_Tuple2(
+								author$project$GameStates$PlayingState(
+									A3(author$project$GameStates$Play$init, overState.name, overState.uuid, overState.leaderboard)),
+								elm$core$Platform$Cmd$none);
+						case 'AddLeaderboard':
+							var scores = _n0.a.a;
+							var gameOverState = _n0.b.a;
+							return _Utils_Tuple2(
+								author$project$GameStates$GameOverState(
+									_Utils_update(
+										gameOverState,
+										{leaderboard: scores})),
+								elm$core$Platform$Cmd$none);
+						default:
+							break _n0$8;
+					}
 			}
 		}
 		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 	});
-var author$project$GameStates$getUserScoreFromModel = function (model) {
+var author$project$GameStates$getLeaderboardFromModel = function (model) {
 	switch (model.$) {
 		case 'StartPageState':
 			var m = model.a;
@@ -7215,6 +7272,19 @@ var author$project$GameStates$getUserScoreFromModel = function (model) {
 		default:
 			var m = model.a;
 			return m.leaderboard;
+	}
+};
+var author$project$GameStates$getUserScoreFromModel = function (model) {
+	switch (model.$) {
+		case 'StartPageState':
+			var m = model.a;
+			return {name: m.name, score: 0, uuid: m.uuid};
+		case 'PlayingState':
+			var m = model.a;
+			return {name: m.name, score: m.score, uuid: m.uuid};
+		default:
+			var m = model.a;
+			return {name: m.name, score: m.score, uuid: m.uuid};
 	}
 };
 var author$project$GameStates$Over$ChangeState = {$: 'ChangeState'};
@@ -7247,7 +7317,13 @@ var author$project$GameStates$Over$view = function (_n0) {
 		_List_Nil,
 		_List_fromArray(
 			[
-				elm$html$Html$text('Game Over'),
+				A2(
+				elm$html$Html$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						elm$html$Html$text('Game Over')
+					])),
 				A2(
 				elm$html$Html$button,
 				_List_fromArray(
@@ -7266,7 +7342,6 @@ var author$project$GameStates$Play$ChangeDifficulty = function (a) {
 	return {$: 'ChangeDifficulty', a: a};
 };
 var elm$html$Html$input = _VirtualDom_node('input');
-var elm$json$Json$Encode$string = _Json_wrap;
 var elm$html$Html$Attributes$stringProperty = F2(
 	function (key, string) {
 		return A2(
@@ -7387,7 +7462,7 @@ var author$project$GameStates$Play$view = function (_n0) {
 		elm$html$Html$div,
 		_List_fromArray(
 			[
-				A2(elm$html$Html$Attributes$style, 'display', 'flex')
+				elm$html$Html$Attributes$class('flex')
 			]),
 		_List_fromArray(
 			[
@@ -7505,7 +7580,6 @@ var author$project$GameStates$Start$ChangeState = {$: 'ChangeState'};
 var author$project$GameStates$Start$UpdateName = function (a) {
 	return {$: 'UpdateName', a: a};
 };
-var elm$core$Debug$toString = _Debug_toString;
 var elm$json$Json$Encode$bool = _Json_wrap;
 var elm$html$Html$Attributes$boolProperty = F2(
 	function (key, bool) {
@@ -7518,57 +7592,80 @@ var elm$html$Html$Attributes$disabled = elm$html$Html$Attributes$boolProperty('d
 var author$project$GameStates$Start$view = function (model) {
 	return A2(
 		elm$html$Html$div,
-		_List_Nil,
+		_List_fromArray(
+			[
+				elm$html$Html$Attributes$class('input-group')
+			]),
 		_List_fromArray(
 			[
 				A2(
 				elm$html$Html$input,
 				_List_fromArray(
 					[
+						elm$html$Html$Attributes$class('input-group-field'),
 						elm$html$Html$Attributes$value(model.name),
-						elm$html$Html$Events$onInput(author$project$GameStates$Start$UpdateName)
+						elm$html$Html$Events$onInput(author$project$GameStates$Start$UpdateName),
+						elm$html$Html$Attributes$type_('text')
 					]),
 				_List_Nil),
 				A2(
-				elm$html$Html$button,
+				elm$html$Html$div,
 				_List_fromArray(
 					[
-						elm$html$Html$Attributes$disabled(
-						elm$core$String$isEmpty(model.name)),
-						elm$html$Html$Events$onClick(author$project$GameStates$Start$ChangeState)
+						elm$html$Html$Attributes$class('input-group-button')
 					]),
 				_List_fromArray(
 					[
-						elm$html$Html$text('Start')
-					])),
-				elm$html$Html$text(
-				elm$core$Debug$toString(model))
+						A2(
+						elm$html$Html$button,
+						_List_fromArray(
+							[
+								elm$html$Html$Attributes$disabled(
+								elm$core$String$isEmpty(model.name)),
+								elm$html$Html$Events$onClick(author$project$GameStates$Start$ChangeState),
+								elm$html$Html$Attributes$class('button')
+							]),
+						_List_fromArray(
+							[
+								elm$html$Html$text('Start')
+							]))
+					]))
 			]));
 };
 var elm$core$List$sortBy = _List_sortBy;
 var elm$html$Html$li = _VirtualDom_node('li');
 var elm$html$Html$ul = _VirtualDom_node('ul');
-var author$project$Leaderboard$view = function (score) {
-	var sortLeaderboard = elm$core$List$sortBy(
-		function ($) {
-			return $.score;
-		});
-	return A2(
-		elm$html$Html$ul,
-		_List_Nil,
-		A2(
-			elm$core$List$map,
-			function (user) {
-				return A2(
-					elm$html$Html$li,
-					_List_Nil,
-					_List_fromArray(
-						[
-							elm$html$Html$text(
-							user.name + (' ' + elm$core$String$fromInt(user.score)))
-						]));
-			},
-			sortLeaderboard(score)));
+var author$project$Leaderboard$view = F2(
+	function (score, current) {
+		var sortLeaderboard = elm$core$List$sortBy(
+			function ($) {
+				return $.score;
+			});
+		var highlightStyle = _List_fromArray(
+			[
+				A2(elm$html$Html$Attributes$style, 'background', ' green'),
+				A2(elm$html$Html$Attributes$style, 'color', 'white')
+			]);
+		return A2(
+			elm$html$Html$ul,
+			_List_Nil,
+			A2(
+				elm$core$List$map,
+				function (user) {
+					return A2(
+						elm$html$Html$li,
+						_Utils_eq(user.uuid, current.uuid) ? highlightStyle : _List_Nil,
+						_List_fromArray(
+							[
+								elm$html$Html$text(
+								user.name + (' ' + elm$core$String$fromInt(user.score)))
+							]));
+				},
+				elm$core$List$reverse(
+					sortLeaderboard(score))));
+	});
+var author$project$Main$GameOverType = function (a) {
+	return {$: 'GameOverType', a: a};
 };
 var elm$virtual_dom$VirtualDom$map = _VirtualDom_map;
 var elm$html$Html$map = elm$virtual_dom$VirtualDom$map;
@@ -7577,40 +7674,54 @@ var author$project$Main$view = function (model) {
 		elm$html$Html$div,
 		_List_fromArray(
 			[
-				A2(elm$html$Html$Attributes$style, 'display', 'flex')
+				elm$html$Html$Attributes$class('grid-container')
 			]),
 		_List_fromArray(
 			[
 				A2(
 				elm$html$Html$div,
-				_List_Nil,
 				_List_fromArray(
 					[
-						function () {
-						switch (model.$) {
-							case 'StartPageState':
-								var startPageModel = model.a;
-								return A2(
-									elm$html$Html$map,
-									author$project$Main$StartPageType,
-									author$project$GameStates$Start$view(startPageModel));
-							case 'PlayingState':
-								var playingModel = model.a;
-								return A2(
-									elm$html$Html$map,
-									author$project$Main$PlayingType,
-									author$project$GameStates$Play$view(playingModel));
-							default:
-								var gameOverModel = model.a;
-								return A2(
-									elm$html$Html$map,
-									author$project$Main$GameOverType,
-									author$project$GameStates$Over$view(gameOverModel));
-						}
-					}()
-					])),
-				author$project$Leaderboard$view(
-				author$project$GameStates$getUserScoreFromModel(model))
+						elm$html$Html$Attributes$class('grid-x align-center')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						elm$html$Html$div,
+						_List_fromArray(
+							[
+								elm$html$Html$Attributes$class('row medium-6 columns')
+							]),
+						_List_fromArray(
+							[
+								function () {
+								switch (model.$) {
+									case 'StartPageState':
+										var startPageModel = model.a;
+										return A2(
+											elm$html$Html$map,
+											author$project$Main$StartPageType,
+											author$project$GameStates$Start$view(startPageModel));
+									case 'PlayingState':
+										var playingModel = model.a;
+										return A2(
+											elm$html$Html$map,
+											author$project$Main$PlayingType,
+											author$project$GameStates$Play$view(playingModel));
+									default:
+										var gameOverModel = model.a;
+										return A2(
+											elm$html$Html$map,
+											author$project$Main$GameOverType,
+											author$project$GameStates$Over$view(gameOverModel));
+								}
+							}(),
+								A2(
+								author$project$Leaderboard$view,
+								author$project$GameStates$getLeaderboardFromModel(model),
+								author$project$GameStates$getUserScoreFromModel(model))
+							]))
+					]))
 			]));
 };
 var elm$browser$Browser$element = _Browser_element;
