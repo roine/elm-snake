@@ -4898,23 +4898,25 @@ var author$project$GameStates$Play$East = {$: 'East'};
 var author$project$GameStates$Play$North = {$: 'North'};
 var author$project$GameStates$Play$South = {$: 'South'};
 var author$project$GameStates$Play$West = {$: 'West'};
+var elm$core$Debug$log = _Debug_log;
 var author$project$GameStates$Play$keyToDirections = function (key) {
-	switch (key) {
-		case 37:
+	var _n0 = A2(elm$core$Debug$log, 'dsf', key);
+	switch (_n0) {
+		case 'ArrowLeft':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$West);
-		case 38:
+		case 'ArrowUp':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$North);
-		case 39:
+		case 'ArrowRight':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$East);
-		case 40:
+		case 'ArrowDown':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$South);
-		case 65:
+		case 'a':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$West);
-		case 87:
+		case 'w':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$North);
-		case 68:
+		case 'd':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$East);
-		case 83:
+		case 's':
 			return elm$core$Maybe$Just(author$project$GameStates$Play$South);
 		default:
 			return elm$core$Maybe$Nothing;
@@ -4965,8 +4967,8 @@ var author$project$GameStates$Play$oppositeDirection = F2(
 var elm$json$Json$Decode$andThen = _Json_andThen;
 var elm$json$Json$Decode$fail = _Json_fail;
 var elm$json$Json$Decode$field = _Json_decodeField;
-var elm$json$Json$Decode$int = _Json_decodeInt;
 var elm$json$Json$Decode$map = _Json_map1;
+var elm$json$Json$Decode$string = _Json_decodeString;
 var elm$json$Json$Decode$succeed = _Json_succeed;
 var author$project$GameStates$Play$keyDecoder = F2(
 	function (tag, model) {
@@ -4991,7 +4993,7 @@ var author$project$GameStates$Play$keyDecoder = F2(
 				A2(
 					elm$json$Json$Decode$map,
 					author$project$GameStates$Play$keyToDirections,
-					A2(elm$json$Json$Decode$field, 'keyCode', elm$json$Json$Decode$int))));
+					A2(elm$json$Json$Decode$field, 'key', elm$json$Json$Decode$string))));
 	});
 var elm$browser$Browser$AnimationManager$Time = function (a) {
 	return {$: 'Time', a: a};
@@ -5834,7 +5836,7 @@ var elm$browser$Browser$Events$on = F3(
 		return elm$browser$Browser$Events$subscription(
 			A3(elm$browser$Browser$Events$MySub, node, name, decoder));
 	});
-var elm$browser$Browser$Events$onKeyPress = A2(elm$browser$Browser$Events$on, elm$browser$Browser$Events$Document, 'keypress');
+var elm$browser$Browser$Events$onKeyDown = A2(elm$browser$Browser$Events$on, elm$browser$Browser$Events$Document, 'keydown');
 var elm$browser$Browser$Events$Hidden = {$: 'Hidden'};
 var elm$browser$Browser$Events$Visible = {$: 'Visible'};
 var elm$browser$Browser$Events$withHidden = F2(
@@ -5864,7 +5866,7 @@ var author$project$GameStates$Play$subscriptions = function (model) {
 		_List_fromArray(
 			[
 				elm$browser$Browser$Events$onAnimationFrame(author$project$GameStates$Play$Tick),
-				elm$browser$Browser$Events$onKeyPress(
+				elm$browser$Browser$Events$onKeyDown(
 				A2(author$project$GameStates$Play$keyDecoder, author$project$GameStates$Play$ChangeDirection, model)),
 				elm$browser$Browser$Events$onVisibilityChange(author$project$GameStates$Play$TogglePause)
 			]));
@@ -5879,8 +5881,8 @@ var author$project$Main$PlayingType = function (a) {
 	return {$: 'PlayingType', a: a};
 };
 var elm$json$Json$Decode$index = _Json_decodeIndex;
+var elm$json$Json$Decode$int = _Json_decodeInt;
 var elm$json$Json$Decode$list = _Json_decodeList;
-var elm$json$Json$Decode$string = _Json_decodeString;
 var author$project$Main$leaderboard = _Platform_incomingPort(
 	'leaderboard',
 	elm$json$Json$Decode$list(

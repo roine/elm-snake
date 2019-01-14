@@ -1,3 +1,17 @@
+## Intro
+
+Snake built with ELM.
+
+## Development
+
+Install elm-live and run
+```bash
+elm-live src/Main.elm -- --output=elm.js
+```
+
+## Run test
+
+none yet
 Todos
 ==
 - Make a snake head 
@@ -6,3 +20,4 @@ Todos
 -  Add style
 - Use SVG
 - Increment difficulty over time and remove difficulty slider
+- Fix Safari

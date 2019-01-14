@@ -484,31 +484,31 @@ optionView difficulty =
 -- SUBSCRIPTIONS
 
 
-keyToDirections : Int -> Maybe Direction
+keyToDirections : String -> Maybe Direction
 keyToDirections key =
-    case key of
-        37 ->
+    case Debug.log "dsf" key of
+        "ArrowLeft" ->
             Just West
 
-        38 ->
+        "ArrowUp" ->
             Just North
 
-        39 ->
+        "ArrowRight" ->
             Just East
 
-        40 ->
+        "ArrowDown" ->
             Just South
 
-        65 ->
+        "a" ->
             Just West
 
-        87 ->
+        "w" ->
             Just North
 
-        68 ->
+        "d" ->
             Just East
 
-        83 ->
+        "s" ->
             Just South
 
         _ ->
@@ -517,7 +517,7 @@ keyToDirections key =
 
 keyDecoder : (Direction -> Msg) -> Model -> Json.Decode.Decoder Msg
 keyDecoder tag model =
-    Json.Decode.field "keyCode" Json.Decode.int
+    Json.Decode.field "key" Json.Decode.string
         |> Json.Decode.map keyToDirections
         |> Json.Decode.andThen
             (\newDirection ->
@@ -543,6 +543,6 @@ subscriptions model =
     else
         Sub.batch
             [ Browser.Events.onAnimationFrame Tick
-            , Browser.Events.onKeyPress (keyDecoder ChangeDirection model)
+            , Browser.Events.onKeyDown (keyDecoder ChangeDirection model)
             , Browser.Events.onVisibilityChange TogglePause
             ]
