@@ -6396,7 +6396,7 @@ var author$project$GameStates$Play$init = F2(
 			arenaDimension: _Utils_Tuple2(30, 30),
 			blockDimension: 15,
 			currentUserId: currentUserId,
-			difficulty: 3,
+			difficulty: 4,
 			direction: A2(author$project$GameStates$Play$Directions, author$project$GameStates$Play$East, elm$core$Maybe$Nothing),
 			fruitPosition: elm$core$Maybe$Nothing,
 			lastPositionWhenDirectionChanged: _Utils_Tuple2(10, 4),
