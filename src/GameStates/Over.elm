@@ -1,8 +1,10 @@
 module GameStates.Over exposing (Model, Msg(..), update, view)
 
-import Html exposing (button, div, text)
+import Dict
+import Html exposing (Html, button, div, text)
+import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
-import Leaderboard exposing (UserScore)
+import Leaderboard exposing (Leaderboard, UserScore)
 
 
 
@@ -10,10 +12,8 @@ import Leaderboard exposing (UserScore)
 
 
 type alias Model =
-    { score : Int
-    , name : String
-    , uuid : String
-    , leaderboard : List UserScore
+    { currentUserId : String
+    , leaderboard : Leaderboard
     }
 
 
@@ -34,9 +34,19 @@ update msg model =
 -- VIEW
 
 
-view { name, score } =
+view : Model -> Html Msg
+view { currentUserId, leaderboard } =
+    let
+        currentUser =
+            Dict.get currentUserId leaderboard
+    in
     div []
         [ div [] [ text "Game Over" ]
-        , button [ onClick ChangeState ] [ text "restart" ]
-        , text (name ++ "'s score: " ++ String.fromInt score)
+        , button [ onClick ChangeState, class "button" ] [ text "restart" ]
+        , case currentUser of
+            Nothing ->
+                text ""
+
+            Just u ->
+                text (u.name ++ "'s score: " ++ String.fromInt u.score)
         ]

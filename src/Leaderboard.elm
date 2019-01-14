@@ -1,31 +1,46 @@
-module Leaderboard exposing (Leaderboard, UserScore, view)
+module Leaderboard exposing (Leaderboard, UserScore, view, resetScore)
 
+import Dict exposing (Dict)
 import Html exposing (Html, li, text, ul)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (class, style)
 
 
 type alias UserScore =
-    { name : String, score : Int, uuid : String }
+    { name : String, score : Int }
 
 
 type alias Leaderboard =
-    List UserScore
+    Dict String UserScore
 
 
-view : Leaderboard -> UserScore -> Html msg
-view score current =
+resetScore : String -> Leaderboard -> Leaderboard
+resetScore currentUserId leaderboard =
+    Dict.update currentUserId
+        (\maybeUser ->
+            case maybeUser of
+                Nothing -> Nothing
+                Just u -> Just {u|score = 0})
+            leaderboard
+
+
+
+view : Leaderboard -> String -> Html msg
+view leaderboard currentUserId =
     let
         sortLeaderboard =
             List.sortBy .score
 
         highlightStyle =
             [ style "background" " green", style "color" "white" ]
+
+        currentUser =
+            Dict.get currentUserId leaderboard
     in
-    ul []
+    ul [ class "no-bullet" ]
         (List.map
-            (\user ->
+            (\( key, user ) ->
                 li
-                    (if user.uuid == current.uuid then
+                    (if key == currentUserId then
                         highlightStyle
 
                      else
@@ -33,5 +48,5 @@ view score current =
                     )
                     [ text (user.name ++ " " ++ String.fromInt user.score) ]
             )
-            (sortLeaderboard score |> List.reverse)
+            (Dict.toList leaderboard |> List.sortBy (.score << Tuple.second) |> List.reverse)
         )

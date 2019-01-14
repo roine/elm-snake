@@ -1,8 +1,9 @@
-module GameStates exposing (GameStatus(..), getLeaderboardFromModel, getUserScoreFromModel)
+module GameStates exposing (GameStatus(..), getLeaderboardFromModel, getUserIdFromModel)
 
 import GameStates.Over
 import GameStates.Play
 import GameStates.Start
+import Leaderboard exposing (Leaderboard)
 
 
 type GameStatus
@@ -11,6 +12,7 @@ type GameStatus
     | GameOverState GameStates.Over.Model
 
 
+getLeaderboardFromModel : GameStatus -> Leaderboard
 getLeaderboardFromModel model =
     case model of
         StartPageState m ->
@@ -23,13 +25,14 @@ getLeaderboardFromModel model =
             m.leaderboard
 
 
-getUserScoreFromModel model =
+getUserIdFromModel : GameStatus -> String
+getUserIdFromModel model =
     case model of
         StartPageState m ->
-            { name = m.name, score = 0, uuid = m.uuid }
+            m.currentUserId
 
         PlayingState m ->
-            { name = m.name, score = m.score, uuid = m.uuid }
+            m.currentUserId
 
         GameOverState m ->
-            { name = m.name, score = m.score, uuid = m.uuid }
+            m.currentUserId

@@ -8,8 +8,7 @@ const getRandomInts = (n) => {
 const randInts = getRandomInts(5)
 
 var app = Elm.Main.init({
-  node: document.getElementById('app'),
-  flags: [randInts[0], randInts.slice(1)]
+  node: document.getElementById('app')
 })
 // Initialize Firebase
 var config = {
@@ -24,18 +23,25 @@ firebase.initializeApp(config)
 
 var snakeRef = firebase.database().ref('/leaderboard')
 snakeRef.on('value', function (snapshot) {
-  var payload;
-  if (snapshot.val()) {
-    payload = Object.values(snapshot.val())
-
-  } else {
-    payload = []
+  var payload = snapshot.val()
+  if (!payload) {
+    app.ports.leaderboard.send([])
+  }else{
+    var tupledPayload = Object.keys(payload).map(k => [k, payload[k]])
+    app.ports.leaderboard.send(tupledPayload)
   }
-  console.log('updated')
-  app.ports.leaderboard.send(payload)
+
 })
 
-app.ports.sendScore.subscribe(function (user) {
-  var push = snakeRef.push()
-  push.set(user)
+app.ports.sendScore.subscribe(function (userPayload) {
+  var [id, user] = userPayload
+  if (id === "") {
+    var push = snakeRef.push()
+    app.ports.sentScore.send([push.getKey(), user])
+    push.set(user)
+  } else {
+    var update = {}
+    update[id] = user
+    snakeRef.update(update)
+  }
 })

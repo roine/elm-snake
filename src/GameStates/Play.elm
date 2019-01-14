@@ -14,7 +14,7 @@ import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (class, style, type_, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode
-import Leaderboard exposing (Leaderboard, UserScore)
+import Leaderboard exposing (Leaderboard, UserScore, resetScore)
 import Random
 import Task
 import Time exposing (Posix)
@@ -27,31 +27,27 @@ type alias Model =
     , direction : Directions
     , difficulty : Int
     , fruitPosition : Maybe Position
-    , score : Int
     , paused : Bool
-    , name : String
-    , uuid : String
+    , currentUserId : String
     , arenaDimension : ( Int, Int )
     , blockDimension : Int
-    , leaderboard : List UserScore
+    , leaderboard : Leaderboard
     }
 
 
-init : String -> String -> Leaderboard -> Model
-init name uuid leaderboard =
+init : String -> Leaderboard -> Model
+init currentUserId leaderboard =
     { snakePosition = [ ( 10, 4 ), ( 9, 4 ) ]
     , lastTick = Time.millisToPosix 0
     , lastPositionWhenDirectionChanged = ( 10, 4 )
     , direction = Directions East Nothing
     , difficulty = 3
     , fruitPosition = Nothing
-    , score = 0
     , paused = False
-    , name = name
-    , uuid = uuid
+    , currentUserId = currentUserId
     , arenaDimension = ( 30, 30 )
     , blockDimension = 15
-    , leaderboard = leaderboard
+    , leaderboard = resetScore currentUserId leaderboard
     }
 
 
@@ -216,17 +212,6 @@ update msg model =
                                                 _ :: xs ->
                                                     newPosition :: List.reverse xs
                                 , lastTick = posix
-                                , score =
-                                    case model.fruitPosition of
-                                        Just fruitPosition ->
-                                            if fruitPosition == head then
-                                                model.score + getScoreFromDifficulty model.difficulty + 1
-
-                                            else
-                                                model.score + 1
-
-                                        Nothing ->
-                                            model.score + 1
                                 , direction =
                                     case getLastDirection model.direction of
                                         Nothing ->
@@ -246,19 +231,27 @@ update msg model =
                                         Nothing ->
                                             model.fruitPosition
                                 , leaderboard =
-                                    if List.any (\u -> u.uuid == model.uuid) model.leaderboard then
-                                        List.map
-                                            (\u ->
-                                                if u.uuid == model.uuid then
-                                                    { name = model.name, score = model.score, uuid = model.uuid }
+                                    Dict.update model.currentUserId
+                                        (\maybeUser ->
+                                            Maybe.map
+                                                (\u ->
+                                                    { u
+                                                        | score =
+                                                            case model.fruitPosition of
+                                                                Just fruitPosition ->
+                                                                    if fruitPosition == head then
+                                                                        u.score + getScoreFromDifficulty model.difficulty + 1
 
-                                                else
-                                                    u
-                                            )
-                                            model.leaderboard
+                                                                    else
+                                                                        u.score + 1
 
-                                    else
-                                        { name = model.name, score = model.score, uuid = model.uuid } :: model.leaderboard
+                                                                Nothing ->
+                                                                    u.score + 1
+                                                    }
+                                                )
+                                                maybeUser
+                                        )
+                                        model.leaderboard
                               }
                             , newFruit
                             )
@@ -338,7 +331,7 @@ ouroborosing ( x, y ) bodyParts =
 
 
 view : Model -> Html Msg
-view { snakePosition, fruitPosition, arenaDimension, paused, blockDimension, difficulty, score } =
+view { snakePosition, fruitPosition, arenaDimension, paused, blockDimension, difficulty, leaderboard, currentUserId } =
     let
         columns =
             Tuple.first arenaDimension
@@ -351,11 +344,20 @@ view { snakePosition, fruitPosition, arenaDimension, paused, blockDimension, dif
 
         height =
             (blockDimension * columns |> String.fromInt) ++ "px"
+
+        user =
+            Dict.get currentUserId leaderboard
     in
     div [ class "flex" ]
         [ div []
             [ div [ style "font-size" "40px", style "text-align" "center" ]
-                [ text (String.fromInt score) ]
+                [ case user of
+                    Nothing ->
+                        text ""
+
+                    Just u ->
+                        text (String.fromInt u.score)
+                ]
             , div
                 [ style "display" "flex" ]
                 [ div

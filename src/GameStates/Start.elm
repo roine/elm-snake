@@ -1,36 +1,27 @@
 module GameStates.Start exposing (Model, Msg(..), init, update, view)
 
+import Dict
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes exposing (class, disabled, type_, value)
 import Html.Events exposing (onClick, onInput)
-import Leaderboard exposing (UserScore)
-import Random.Pcg.Extended exposing (Seed, initialSeed, step)
-import Uuid exposing (Uuid)
+import Leaderboard exposing (Leaderboard, UserScore)
 
 
 
 -- MODEL
 
 
-init ( seed, seedExtension ) =
-    let
-        ( newUuid, newSeed ) =
-            step Uuid.generator (initialSeed seed seedExtension)
-    in
+init =
     { name = ""
-    , uuid = Uuid.toString newUuid
-    , leaderboard = []
-    , currentSeed = newSeed
-    , currentUUID = newUuid
+    , leaderboard = Dict.empty
+    , currentUserId = ""
     }
 
 
 type alias Model =
     { name : String
-    , uuid : String
-    , leaderboard : List UserScore
-    , currentSeed : Seed
-    , currentUUID : Uuid
+    , leaderboard : Leaderboard
+    , currentUserId : String
     }
 
 

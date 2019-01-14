@@ -1,7 +1,8 @@
 port module Main exposing (main)
 
 import Browser
-import GameStates exposing (GameStatus(..), getLeaderboardFromModel, getUserScoreFromModel)
+import Dict
+import GameStates exposing (GameStatus(..), getLeaderboardFromModel, getUserIdFromModel)
 import GameStates.Over
 import GameStates.Play
 import GameStates.Start
@@ -12,13 +13,17 @@ import Leaderboard exposing (UserScore)
 import Uuid
 
 
-port leaderboard : (List UserScore -> msg) -> Sub msg
+port leaderboard : (List ( String, UserScore ) -> msg) -> Sub msg
 
 
-port leaderboardUpdate : (UserScore -> msg) -> Sub msg
+port sendScore : ( String, UserScore ) -> Cmd msg
 
 
-port sendScore : UserScore -> Cmd msg
+port sentScore : (( String, UserScore ) -> msg) -> Sub msg
+
+
+
+--port scoreSent :
 
 
 type alias Model =
@@ -26,12 +31,12 @@ type alias Model =
 
 
 type alias Flags =
-    ( Int, List Int )
+    ()
 
 
 init : Flags -> ( Model, Cmd Msg )
-init flags =
-    ( StartPageState (GameStates.Start.init flags)
+init _ =
+    ( StartPageState GameStates.Start.init
     , Cmd.none
     )
 
@@ -44,7 +49,8 @@ type Msg
     = PlayingType GameStates.Play.Msg
     | GameOverType GameStates.Over.Msg
     | StartPageType GameStates.Start.Msg
-    | AddLeaderboard (List UserScore)
+    | AddLeaderboard (List ( String, UserScore ))
+    | AddIdToUser ( String, UserScore )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -52,20 +58,27 @@ update msg model =
     case ( msg, model ) of
         -- TRANSITION GAME STATE
         ( StartPageType GameStates.Start.ChangeState, StartPageState startState ) ->
-            ( PlayingState (GameStates.Play.init startState.name startState.uuid startState.leaderboard), Cmd.none )
+            ( StartPageState startState, sendScore ( "", { name = startState.name, score = 0 } ) )
 
         ( PlayingType GameStates.Play.ChangeState, PlayingState playingState ) ->
+            let
+                currentUser =
+                    Dict.get playingState.currentUserId playingState.leaderboard
+            in
             ( GameOverState
-                { name = playingState.name
-                , score = playingState.score
-                , uuid = playingState.uuid
-                , leaderboard = playingState.leaderboard
+                { leaderboard = playingState.leaderboard
+                , currentUserId = playingState.currentUserId
                 }
-            , sendScore { name = playingState.name, score = playingState.score, uuid = playingState.uuid }
+            , case currentUser of
+                Nothing ->
+                    Cmd.none
+
+                Just u ->
+                    sendScore ( playingState.currentUserId, { name = u.name, score = u.score } )
             )
 
         ( GameOverType GameStates.Over.ChangeState, GameOverState overState ) ->
-            ( PlayingState (GameStates.Play.init overState.name overState.uuid overState.leaderboard), Cmd.none )
+            ( PlayingState (GameStates.Play.init overState.currentUserId overState.leaderboard), Cmd.none )
 
         -- FORWARDING MSG
         ( StartPageType subMsg, StartPageState startState ) ->
@@ -79,14 +92,33 @@ update msg model =
         --        ( GameOverType subMsg, GameOverState gameOverState ) ->
         --            GameStates.Over.update subMsg gameOverState
         --                |> Tuple.mapBoth GameOverState (Cmd.map GameOverType)
-        ( AddLeaderboard scores, PlayingState playingState ) ->
-            ( PlayingState { playingState | leaderboard = scores }, Cmd.none )
+        ( AddLeaderboard l, PlayingState playingState ) ->
+            ( PlayingState { playingState | leaderboard = Dict.fromList l }, Cmd.none )
 
-        ( AddLeaderboard scores, StartPageState startState ) ->
-            ( StartPageState { startState | leaderboard = scores }, Cmd.none )
+        ( AddLeaderboard l, StartPageState startState ) ->
+            ( StartPageState { startState | leaderboard = Dict.fromList l }, Cmd.none )
 
-        ( AddLeaderboard scores, GameOverState gameOverState ) ->
-            ( GameOverState { gameOverState | leaderboard = scores }, Cmd.none )
+        ( AddLeaderboard l, GameOverState gameOverState ) ->
+            ( GameOverState { gameOverState | leaderboard = Dict.fromList l }, Cmd.none )
+
+        --                |> Tuple.mapBoth GameOverState (Cmd.map GameOverType)
+        ( AddIdToUser ( remoteId, user ), StartPageState startState ) ->
+            ( PlayingState
+                (GameStates.Play.init
+                    remoteId
+                    (Dict.map
+                        (\id u ->
+                            if remoteId == id then
+                                user
+
+                            else
+                                u
+                        )
+                        startState.leaderboard
+                    )
+                )
+            , Cmd.none
+            )
 
         _ ->
             ( model, Cmd.none )
@@ -101,7 +133,7 @@ view model =
     div [ class "grid-container" ]
         [ div
             [ class "grid-x align-center" ]
-            [ div [ class "row medium-6 columns" ]
+            [ div [ class "row medium-7 columns" ]
                 [ case model of
                     StartPageState startPageModel ->
                         Html.map StartPageType (GameStates.Start.view startPageModel)
@@ -111,7 +143,7 @@ view model =
 
                     GameOverState gameOverModel ->
                         Html.map GameOverType (GameStates.Over.view gameOverModel)
-                , Leaderboard.view (getLeaderboardFromModel model) (getUserScoreFromModel model)
+                , Leaderboard.view (getLeaderboardFromModel model) (getUserIdFromModel model)
                 ]
             ]
         ]
@@ -125,6 +157,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ leaderboard AddLeaderboard
+        , sentScore AddIdToUser
         , case model of
             PlayingState playingState ->
                 Sub.map PlayingType (GameStates.Play.subscriptions playingState)
